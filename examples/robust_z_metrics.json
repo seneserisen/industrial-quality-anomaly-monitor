@@ -1,0 +1,11 @@
+{
+  "detected_anomalies": 122,
+  "detected_anomaly_rate": 0.04066666666666666,
+  "f1_score": 0.9917355371900827,
+  "injected_anomalies": 120,
+  "max_anomaly_score": 14.540800000000035,
+  "mean_anomaly_score": 1.863434183110942,
+  "precision": 0.9836065573770492,
+  "recall": 1.0,
+  "rows": 3000
+}
