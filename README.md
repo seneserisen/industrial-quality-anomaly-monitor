@@ -76,20 +76,23 @@ artifacts/
 └── scored_production_data.csv
 ```
 
-## Example KPI output
+## Reproduced KPI output
+
+The commands above were executed with seed `42`, a 4% injected anomaly rate, and a robust-Z threshold of `4.0`:
 
 ```json
 {
-  "detected_anomalies": 113,
-  "detected_anomaly_rate": 0.0377,
-  "f1_score": 0.89,
-  "precision": 0.92,
-  "recall": 0.87,
+  "detected_anomalies": 122,
+  "detected_anomaly_rate": 0.04066666666666666,
+  "f1_score": 0.9917355371900827,
+  "injected_anomalies": 120,
+  "precision": 0.9836065573770492,
+  "recall": 1.0,
   "rows": 3000
 }
 ```
 
-Exact values depend on detector settings. The generated dataset is labelled only so detector behaviour can be measured; production datasets normally require expert review or maintenance-event labels.
+The complete measured output is stored in [`examples/robust_z_metrics.json`](examples/robust_z_metrics.json). These strong results reflect deliberately separable synthetic failure signatures and must not be treated as expected real-factory performance. Production datasets require calibration, expert review, and maintenance-event labels.
 
 ## Why two detection methods?
 
