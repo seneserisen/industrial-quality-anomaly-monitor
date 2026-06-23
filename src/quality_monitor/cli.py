@@ -34,11 +34,22 @@ def build_parser() -> argparse.ArgumentParser:
     )
     analyse.add_argument("--contamination", type=float, default=0.04)
     analyse.add_argument("--threshold", type=float, default=4.0)
+    analyse.add_argument(
+        "--group-column",
+        help="Column defining robust-baseline groups, for example machine_id.",
+    )
+    analyse.add_argument(
+        "--min-group-size",
+        type=int,
+        default=5,
+        help="Minimum rows required before a group uses its own robust baseline.",
+    )
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
+    parser = build_parser()
+    args = parser.parse_args(argv)
 
     if args.command == "generate":
         config = GenerationConfig(
@@ -51,10 +62,19 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Generated dataset: {output}")
         return 0
 
+    if args.min_group_size < 2:
+        parser.error("--min-group-size must be at least 2")
+    if args.group_column is None and args.min_group_size != 5:
+        parser.error("--min-group-size requires --group-column")
+    if args.method != "robust-z" and args.group_column is not None:
+        parser.error("--group-column is only supported with --method robust-z")
+
     config = AnalysisConfig(
         method=args.method,
         contamination=args.contamination,
         threshold=args.threshold,
+        group_column=args.group_column,
+        min_group_size=args.min_group_size,
     )
     outputs = run_analysis(args.input, args.output_dir, config)
     metrics = json.loads(outputs["metrics"].read_text(encoding="utf-8"))
