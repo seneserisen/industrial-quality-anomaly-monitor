@@ -8,11 +8,12 @@ This portfolio project connects industrial production experience with practical 
 
 - Synthetic multi-machine production data with controllable failure injection
 - Interpretable anomaly detection using robust median/MAD statistics
+- Machine- or line-specific robust reference baselines
 - Multivariate anomaly detection using Isolation Forest
 - Data validation and explicit failure messages
 - Precision, recall, and F1 evaluation when labels are available
 - CSV, JSON, and PNG reporting artifacts
-- Unit and integration tests
+- Unit, integration, and command-line tests
 - GitHub Actions across Python 3.10–3.12
 - Containerised command-line execution
 
@@ -47,7 +48,7 @@ quality-monitor generate \
   --output data/production_data.csv
 ```
 
-Run the interpretable baseline:
+Run the global interpretable baseline:
 
 ```bash
 quality-monitor analyse \
@@ -56,6 +57,22 @@ quality-monitor analyse \
   --method robust-z \
   --threshold 4.0
 ```
+
+Run a machine-specific robust baseline:
+
+```bash
+quality-monitor analyse \
+  --input data/production_data.csv \
+  --output-dir artifacts/machine-aware \
+  --method robust-z \
+  --threshold 4.0 \
+  --group-column machine_id \
+  --min-group-size 20
+```
+
+`--group-column` selects the column that defines separate reference populations. This can be a machine, production line, product family, shift, or another operational grouping. A group with fewer rows than `--min-group-size` uses the global baseline because its own median and variability estimate would be unstable.
+
+Grouped baselines are currently supported only by the robust Z-score method. Isolation Forest uses the full multivariate dataset.
 
 Run the multivariate model:
 
@@ -78,7 +95,7 @@ artifacts/
 
 ## Reproduced KPI output
 
-The commands above were executed with seed `42`, a 4% injected anomaly rate, and a robust-Z threshold of `4.0`:
+The global robust-Z command was executed with seed `42`, a 4% injected anomaly rate, and a threshold of `4.0`:
 
 ```json
 {
@@ -99,6 +116,8 @@ The complete measured output is stored in [`examples/robust_z_metrics.json`](exa
 ### Robust Z-score
 
 The median and median absolute deviation are less sensitive to extreme measurements than the mean and standard deviation. The maximum robust score across features is easy to inspect and explain during an engineering review.
+
+The robust detector can calculate either one global reference distribution or separate distributions for groups such as machines. Grouped baselines reduce false alarms caused by legitimate machine offsets and can reveal local abnormalities hidden by the global population.
 
 ### Isolation Forest
 

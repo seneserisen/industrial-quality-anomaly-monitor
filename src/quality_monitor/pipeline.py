@@ -19,6 +19,8 @@ class AnalysisConfig:
     contamination: float = 0.04
     threshold: float = 4.0
     features: tuple[str, ...] = DEFAULT_FEATURES
+    group_column: str | None = None
+    min_group_size: int = 5
 
 
 def load_dataset(input_path: str | Path) -> pd.DataFrame:
@@ -38,6 +40,8 @@ def analyse_frame(frame: pd.DataFrame, config: AnalysisConfig) -> pd.DataFrame:
         config.method,
         contamination=config.contamination,
         threshold=config.threshold,
+        group_column=config.group_column,
+        min_group_size=config.min_group_size,
     )
     scores, predictions = detector.predict(frame, config.features)
     result = frame.copy()
