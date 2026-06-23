@@ -99,11 +99,22 @@ class IsolationForestDetector:
         return raw_scores, predictions
 
 
-def build_detector(method: str, *, contamination: float, threshold: float) -> object:
-    """Construct a detector from a CLI-friendly method name."""
+def build_detector(
+    method: str,
+    *,
+    contamination: float,
+    threshold: float,
+    group_column: str | None = None,
+    min_group_size: int = 5,
+) -> object:
+    """Construct a detector from pipeline- or CLI-friendly configuration values."""
 
     if method == "robust-z":
-        return RobustZScoreDetector(threshold=threshold)
+        return RobustZScoreDetector(
+            threshold=threshold,
+            group_column=group_column,
+            min_group_size=min_group_size,
+        )
     if method == "isolation-forest":
         return IsolationForestDetector(contamination=contamination)
     raise ValueError(f"unsupported method: {method}")
