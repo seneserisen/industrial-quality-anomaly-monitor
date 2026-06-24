@@ -2,7 +2,7 @@
 
 ## Status
 
-Design specification for the next v0.2 milestone. No comparison metrics in this document are measured results.
+Final design specification for the next v0.2 milestone. No comparison metrics in this document are measured results.
 
 ## Objective
 
@@ -18,9 +18,16 @@ The comparison must be reproducible, fair, and explicit about the limitations of
 
 How do an interpretable global statistical baseline, a machine-aware statistical baseline, and a multivariate Isolation Forest differ in detection quality, false-alarm behaviour, fault coverage, and execution time on the same labelled synthetic production dataset?
 
+## Resolved protocol decisions
+
+- Per-fault recall is required in the first comparison implementation.
+- The machine-aware demonstration uses `min_group_size=20`.
+- Runtime is reported as the median of five complete detector runs.
+- The dataset is regenerated deterministically from committed configuration instead of being committed as a permanent CSV artifact.
+
 ## Frozen dataset configuration
 
-The first published comparison will use exactly one generated CSV with:
+The first published comparison will generate exactly one in-memory dataset with:
 
 | Parameter | Value |
 |---|---:|
@@ -30,7 +37,7 @@ The first published comparison will use exactly one generated CSV with:
 | Random seed | 42 |
 | Sampling interval | 1 minute |
 
-Generation command:
+Equivalent generation command:
 
 ```bash
 quality-monitor generate \
@@ -38,14 +45,16 @@ quality-monitor generate \
   --machines 4 \
   --anomaly-rate 0.04 \
   --seed 42 \
-  --output examples/detector_comparison/production_data.csv
+  --output artifacts/detector_comparison/production_data.csv
 ```
 
-The generated CSV is the single source dataset for all three configurations. A detector must not receive a separately generated dataset.
+The comparison runner regenerates the dataset from these fixed parameters at the start of each experiment. The resulting frame is reused for all three detector configurations. A detector must not receive a separately generated dataset.
+
+The generated CSV may be written locally for inspection, but it is not a required committed artifact because the generator and seed already define it reproducibly.
 
 ## Feature set
 
-All configurations use the same five numeric features:
+All configurations use the same five numeric features in the same order:
 
 - `temperature_c`
 - `vibration_mm_s`
@@ -101,14 +110,15 @@ Provide a multivariate model that can detect unusual combinations of measurement
 
 ## Fairness rules
 
-1. Use the same frozen CSV for all configurations.
+1. Use the same regenerated dataset frame for all configurations.
 2. Use the same feature columns in the same order.
 3. Do not tune thresholds or contamination after viewing comparison labels.
 4. Do not remove difficult fault types from the evaluation.
-5. Do not regenerate the dataset to improve a detector's result.
+5. Do not change the dataset seed to improve a detector's result.
 6. Record every parameter in the published output.
 7. Treat runtime measurements as environment-dependent indicators, not universal benchmarks.
 8. Keep synthetic performance claims separate from real-factory expectations.
+9. Run all detector timings in the same process and on the same loaded frame.
 
 ## Required metrics
 
@@ -146,7 +156,8 @@ Each detector result must report:
 
 - `mean_anomaly_score`
 - `max_anomaly_score`
-- `runtime_seconds`
+- `runtime_median_seconds`
+- `runtime_repetitions`
 
 ### Fault-type coverage
 
@@ -156,7 +167,7 @@ For each injected fault type:
 - detected count
 - recall
 
-Required fault types:
+Required fault types in the first implementation:
 
 - overheating
 - bearing wear
@@ -165,10 +176,20 @@ Required fault types:
 
 ## Timing method
 
-Use `time.perf_counter()` immediately before and after detector scoring.
+Use `time.perf_counter()` immediately before and after detector fitting, scoring, and binary prediction.
+
+For each detector configuration:
+
+1. Run the complete detector operation five times.
+2. Recreate the detector object for every repetition.
+3. Use the same in-memory dataset and feature order for all repetitions.
+4. Record all five durations internally.
+5. Publish the median as `runtime_median_seconds`.
+6. Publish `runtime_repetitions` as `5`.
 
 Timing includes:
 
+- detector construction
 - detector fitting where applicable
 - score calculation
 - binary anomaly prediction
@@ -180,15 +201,14 @@ Timing excludes:
 - plot rendering
 - writing output files
 
-The report must state the Python version and platform when measured.
+The report must state the Python version and platform when measured. Runtime comparisons are descriptive only because operating-system scheduling, hardware, and background load can affect the values.
 
-## Required artifacts
+## Required committed artifacts
 
 The implementation milestone should produce:
 
 ```text
 examples/detector_comparison/
-├── production_data.csv
 ├── comparison_summary.json
 ├── comparison_summary.csv
 ├── detector_comparison.png
@@ -197,7 +217,7 @@ examples/detector_comparison/
 └── isolation_forest_metrics.json
 ```
 
-The scored row-level CSV files should be generated locally but do not need to be committed if their size makes the repository noisy. The summary artifacts must remain small and reviewable.
+Generated datasets and scored row-level CSV files may be written under `artifacts/detector_comparison/` for local inspection, but they do not need to be committed. The committed summary artifacts must remain small and reviewable.
 
 ## Proposed JSON schema
 
@@ -210,6 +230,7 @@ The structure below defines fields, not measured values:
     "machines": 4,
     "anomaly_rate": 0.04,
     "dataset_seed": 42,
+    "runtime_repetitions": 5,
     "features": [
       "temperature_c",
       "vibration_mm_s",
@@ -241,13 +262,30 @@ The structure below defines fields, not measured values:
         "false_negative_rate": null,
         "mean_anomaly_score": null,
         "max_anomaly_score": null,
-        "runtime_seconds": null
+        "runtime_median_seconds": null,
+        "runtime_repetitions": 5
       },
-      "fault_type_recall": {
-        "overheating": null,
-        "bearing_wear": null,
-        "pressure_loss": null,
-        "slow_cycle": null
+      "fault_type_metrics": {
+        "overheating": {
+          "injected_count": null,
+          "detected_count": null,
+          "recall": null
+        },
+        "bearing_wear": {
+          "injected_count": null,
+          "detected_count": null,
+          "recall": null
+        },
+        "pressure_loss": {
+          "injected_count": null,
+          "detected_count": null,
+          "recall": null
+        },
+        "slow_cycle": {
+          "injected_count": null,
+          "detected_count": null,
+          "recall": null
+        }
       }
     }
   ]
@@ -292,8 +330,8 @@ The protocol should be implemented in later sessions as separate, reviewable inc
 
 ### Session 1 — protocol design
 
-- Add this document
-- Review fields, fairness rules, and artifact names
+- Add and finalize this document
+- Resolve fairness, timing, dataset, and artifact decisions
 - Do not publish metrics
 
 ### Session 2 — reusable evaluation functions
@@ -304,7 +342,8 @@ The protocol should be implemented in later sessions as separate, reviewable inc
 
 ### Session 3 — comparison runner
 
-- Run all three configurations on one frozen dataset
+- Regenerate one deterministic dataset
+- Run all three configurations
 - Export JSON and CSV summaries
 - Add reproducibility tests
 
@@ -318,10 +357,10 @@ The protocol should be implemented in later sessions as separate, reviewable inc
 
 The milestone is complete when a reviewer can:
 
-1. Generate or use the frozen dataset.
+1. Regenerate the frozen dataset from committed configuration.
 2. Run one documented comparison command.
 3. Reproduce all three detector summaries.
-4. Inspect confusion counts and fault-type recall.
+4. Inspect confusion counts and per-fault recall.
 5. View one comparison figure.
 6. Understand the parameter choices and limitations.
 7. Confirm that all published numbers came from committed reproducible code.
