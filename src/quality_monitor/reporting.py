@@ -10,7 +10,8 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
-from sklearn.metrics import precision_recall_fscore_support
+
+from quality_monitor.evaluation import binary_classification_metrics
 
 
 def calculate_metrics(scored_frame: pd.DataFrame) -> dict[str, float | int]:
@@ -27,18 +28,10 @@ def calculate_metrics(scored_frame: pd.DataFrame) -> dict[str, float | int]:
 
     if "is_injected_anomaly" in scored_frame.columns:
         truth = scored_frame["is_injected_anomaly"].astype(bool)
-        precision, recall, f1, _ = precision_recall_fscore_support(
-            truth,
-            detected,
-            average="binary",
-            zero_division=0,
-        )
         metrics.update(
             {
                 "injected_anomalies": int(truth.sum()),
-                "precision": float(precision),
-                "recall": float(recall),
-                "f1_score": float(f1),
+                **binary_classification_metrics(truth, detected),
             }
         )
     return metrics
