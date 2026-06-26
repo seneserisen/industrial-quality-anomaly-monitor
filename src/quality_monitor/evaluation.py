@@ -12,7 +12,7 @@ LabelValues = Sequence[str] | np.ndarray
 
 
 def _as_binary_array(values: BinaryValues, name: str) -> np.ndarray:
-    array = np.asarray(values)
+    array = np.asarray(values, dtype=object)
     if array.ndim != 1:
         raise ValueError(f"{name} must be one-dimensional")
     if bool(pd.isna(array).any()):
@@ -87,7 +87,7 @@ def fault_type_metrics(
 ) -> dict[str, dict[str, float | int]]:
     """Calculate injected counts, detected counts, and recall by fault type."""
 
-    type_array = np.asarray(anomaly_types)
+    type_array = np.asarray(anomaly_types, dtype=object)
     if type_array.ndim != 1:
         raise ValueError("anomaly_types must be one-dimensional")
     if bool(pd.isna(type_array).any()):
@@ -103,6 +103,8 @@ def fault_type_metrics(
         selected_types = sorted(set(type_array.tolist()) - {normal_label})
     else:
         selected_types = list(fault_types)
+        if not all(isinstance(fault_type, str) for fault_type in selected_types):
+            raise ValueError("fault_types must contain only strings")
         if len(selected_types) != len(set(selected_types)):
             raise ValueError("fault_types must not contain duplicates")
         if any(not fault_type or fault_type == normal_label for fault_type in selected_types):
