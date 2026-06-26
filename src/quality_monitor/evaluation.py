@@ -64,9 +64,18 @@ def binary_classification_metrics(
 
     precision = _safe_ratio(true_positives, true_positives + false_positives)
     recall = _safe_ratio(true_positives, true_positives + false_negatives)
-    f1_score = _safe_ratio(2 * true_positives, 2 * true_positives + false_positives + false_negatives)
-    false_positive_rate = _safe_ratio(false_positives, false_positives + true_negatives)
-    false_negative_rate = _safe_ratio(false_negatives, false_negatives + true_positives)
+    f1_score = _safe_ratio(
+        2 * true_positives,
+        2 * true_positives + false_positives + false_negatives,
+    )
+    false_positive_rate = _safe_ratio(
+        false_positives,
+        false_positives + true_negatives,
+    )
+    false_negative_rate = _safe_ratio(
+        false_negatives,
+        false_negatives + true_positives,
+    )
 
     return {
         **counts,
@@ -107,7 +116,10 @@ def fault_type_metrics(
             raise ValueError("fault_types must contain only strings")
         if len(selected_types) != len(set(selected_types)):
             raise ValueError("fault_types must not contain duplicates")
-        if any(not fault_type or fault_type == normal_label for fault_type in selected_types):
+        if any(
+            not fault_type or fault_type == normal_label
+            for fault_type in selected_types
+        ):
             raise ValueError("fault_types must contain non-empty non-normal labels")
 
     metrics: dict[str, dict[str, float | int]] = {}
