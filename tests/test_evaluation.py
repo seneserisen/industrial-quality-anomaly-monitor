@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import pytest
 
 from quality_monitor.evaluation import (
@@ -6,6 +7,7 @@ from quality_monitor.evaluation import (
     confusion_counts,
     fault_type_metrics,
 )
+from quality_monitor.reporting import calculate_metrics
 
 
 def test_confusion_counts_match_known_predictions() -> None:
@@ -93,6 +95,25 @@ def test_fault_type_metrics_include_required_fault_with_no_examples() -> None:
         "detected_count": 0,
         "recall": 0.0,
     }
+
+
+def test_reporting_uses_reusable_binary_metrics() -> None:
+    frame = pd.DataFrame(
+        {
+            "is_detected_anomaly": [True, False, True, False],
+            "is_injected_anomaly": [True, True, False, False],
+            "anomaly_score": [7.0, 1.0, 5.0, 0.5],
+        }
+    )
+
+    metrics = calculate_metrics(frame)
+
+    assert metrics["true_positives"] == 1
+    assert metrics["false_positives"] == 1
+    assert metrics["true_negatives"] == 1
+    assert metrics["false_negatives"] == 1
+    assert metrics["false_positive_rate"] == pytest.approx(0.5)
+    assert metrics["false_negative_rate"] == pytest.approx(0.5)
 
 
 @pytest.mark.parametrize(
