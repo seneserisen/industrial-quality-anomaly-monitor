@@ -3,7 +3,7 @@ import json
 
 import pytest
 
-from quality_monitor.comparison import ComparisonConfig, FAULT_TYPES, run_detector_comparison
+from quality_monitor.comparison import FAULT_TYPES, ComparisonConfig, run_detector_comparison
 
 
 def _stable_summary(summary: dict[str, object]) -> dict[str, object]:
