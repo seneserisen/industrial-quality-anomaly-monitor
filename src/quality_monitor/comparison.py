@@ -172,17 +172,18 @@ def _flatten_detector_result(result: dict[str, object]) -> dict[str, object]:
 
 def run_detector_comparison(
     output_dir: str | Path,
-    config: ComparisonConfig = ComparisonConfig(),
+    config: ComparisonConfig | None = None,
 ) -> dict[str, Path]:
     """Run the frozen comparison and export reviewable JSON and CSV summaries."""
 
-    config.validate()
+    active_config = config or ComparisonConfig()
+    active_config.validate()
     frame = generate_production_data(
         GenerationConfig(
-            rows=config.rows,
-            machines=config.machines,
-            anomaly_rate=config.anomaly_rate,
-            random_seed=config.dataset_seed,
+            rows=active_config.rows,
+            machines=active_config.machines,
+            anomaly_rate=active_config.anomaly_rate,
+            random_seed=active_config.dataset_seed,
         )
     )
 
@@ -192,7 +193,7 @@ def run_detector_comparison(
             name,
             parameters,
             factory,
-            config.runtime_repetitions,
+            active_config.runtime_repetitions,
         )
         for name, parameters, factory in _detector_specifications()
     ]
@@ -200,12 +201,12 @@ def run_detector_comparison(
     truth = frame["is_injected_anomaly"].to_numpy(dtype=bool)
     summary = {
         "experiment": {
-            "rows": config.rows,
-            "machines": config.machines,
-            "anomaly_rate": config.anomaly_rate,
-            "dataset_seed": config.dataset_seed,
+            "rows": active_config.rows,
+            "machines": active_config.machines,
+            "anomaly_rate": active_config.anomaly_rate,
+            "dataset_seed": active_config.dataset_seed,
             "injected_anomalies": int(np.count_nonzero(truth)),
-            "runtime_repetitions": config.runtime_repetitions,
+            "runtime_repetitions": active_config.runtime_repetitions,
             "features": list(DEFAULT_FEATURES),
             "python_version": platform.python_version(),
             "platform": platform.platform(),
