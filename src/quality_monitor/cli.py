@@ -6,6 +6,7 @@ import argparse
 import json
 from pathlib import Path
 
+from quality_monitor.comparison import run_detector_comparison
 from quality_monitor.data_generation import GenerationConfig, generate_production_data, save_dataset
 from quality_monitor.pipeline import AnalysisConfig, run_analysis
 
@@ -44,6 +45,16 @@ def build_parser() -> argparse.ArgumentParser:
         default=5,
         help="Minimum rows required before a group uses its own robust baseline.",
     )
+
+    compare = commands.add_parser(
+        "compare",
+        help="Run the frozen three-detector comparison experiment",
+    )
+    compare.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("artifacts/detector_comparison"),
+    )
     return parser
 
 
@@ -60,6 +71,13 @@ def main(argv: list[str] | None = None) -> int:
         )
         output = save_dataset(generate_production_data(config), args.output)
         print(f"Generated dataset: {output}")
+        return 0
+
+    if args.command == "compare":
+        outputs = run_detector_comparison(args.output_dir)
+        print("Comparison artifacts:")
+        for name, path in outputs.items():
+            print(f"  {name}: {path}")
         return 0
 
     if args.min_group_size < 2:
