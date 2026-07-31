@@ -1,33 +1,37 @@
 # Industrial Quality Anomaly Monitor
 
-A reproducible manufacturing-data project that generates realistic production measurements, detects abnormal process behaviour, and exports engineering KPIs and visual reports.
+A reproducible Python project for comparing interpretable statistical monitoring with a multivariate anomaly detector on controlled manufacturing data.
 
-This portfolio project connects industrial production experience with practical Python, data validation, statistical monitoring, machine learning, testing, Docker, and CI/CD.
+The repository is built around a practical question: when machines have different normal operating ranges, what changes when one global baseline is replaced by machine-aware baselines, and how does either approach compare with Isolation Forest?
 
-## What the project demonstrates
+## Current status
 
-- Synthetic multi-machine production data with controllable failure injection
-- Interpretable anomaly detection using robust median/MAD statistics
-- Machine- or line-specific robust reference baselines
-- Multivariate anomaly detection using Isolation Forest
-- Data validation and explicit failure messages
-- Precision, recall, and F1 evaluation when labels are available
-- CSV, JSON, and PNG reporting artifacts
-- Unit, integration, and command-line tests
-- GitHub Actions across Python 3.10–3.12
-- Containerised command-line execution
+The executable pipeline currently provides:
 
-## Monitored process variables
+- deterministic multi-machine data generation with labelled fault injection;
+- global median/MAD robust scoring;
+- machine- or group-specific robust baselines with a minimum-sample fallback;
+- Isolation Forest scoring;
+- precision, recall, F1, confusion counts and per-fault recall;
+- a shared-dataset comparison runner for all three detector configurations;
+- CSV, JSON and PNG reporting for individual analyses;
+- JSON and CSV summaries for detector comparisons;
+- command-line, unit, integration and reproducibility tests;
+- Docker execution and Python 3.10–3.12 CI.
 
-| Signal | Engineering meaning |
-|---|---|
-| `temperature_c` | Thermal condition of the process or equipment |
-| `vibration_mm_s` | Mechanical health and potential bearing wear |
-| `pressure_bar` | Pneumatic or hydraulic process stability |
-| `cycle_time_s` | Throughput and process-delay indicator |
+The data is synthetic. The software and comparison protocol are implemented; real-factory calibration and validation are not.
+
+## Signals and injected conditions
+
+| Signal | Intended interpretation |
+| --- | --- |
+| `temperature_c` | Thermal condition of a process or machine |
+| `vibration_mm_s` | Mechanical condition indicator |
+| `pressure_bar` | Pneumatic or hydraulic stability |
+| `cycle_time_s` | Throughput and delay indicator |
 | `quality_score` | Simplified downstream quality measurement |
 
-Injected failure modes include overheating, bearing wear, pressure loss, and slow-cycle behaviour.
+The generator can inject overheating, bearing-wear, pressure-loss and slow-cycle patterns. They are deliberately controlled software fixtures, not calibrated physical failure models.
 
 ## Quick start
 
@@ -37,7 +41,7 @@ source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
 ```
 
-Generate a deterministic dataset:
+Generate one repeatable dataset:
 
 ```bash
 quality-monitor generate \
@@ -48,17 +52,7 @@ quality-monitor generate \
   --output data/production_data.csv
 ```
 
-Run the global interpretable baseline:
-
-```bash
-quality-monitor analyse \
-  --input data/production_data.csv \
-  --output-dir artifacts/robust-z \
-  --method robust-z \
-  --threshold 4.0
-```
-
-Run a machine-specific robust baseline:
+Run a machine-aware robust analysis:
 
 ```bash
 quality-monitor analyse \
@@ -70,11 +64,7 @@ quality-monitor analyse \
   --min-group-size 20
 ```
 
-`--group-column` selects the column that defines separate reference populations. This can be a machine, production line, product family, shift, or another operational grouping. A group with fewer rows than `--min-group-size` uses the global baseline because its own median and variability estimate would be unstable.
-
-Grouped baselines are currently supported only by the robust Z-score method. Isolation Forest uses the full multivariate dataset.
-
-Run the multivariate model:
+Run Isolation Forest on the same feature family:
 
 ```bash
 quality-monitor analyse \
@@ -84,44 +74,49 @@ quality-monitor analyse \
   --contamination 0.04
 ```
 
-The analysis creates:
+Each analysis writes scored rows, metrics and a monitoring figure.
 
-```text
-artifacts/
-├── metrics.json
-├── monitoring_summary.png
-└── scored_production_data.csv
+## Deterministic detector comparison
+
+```bash
+quality-monitor compare \
+  --output-dir artifacts/detector_comparison
 ```
 
-## Reproduced KPI output
+The command generates one in-memory dataset and reuses the same rows and feature order for:
 
-The global robust-Z command was executed with seed `42`, a 4% injected anomaly rate, and a threshold of `4.0`:
+1. global robust Z-score;
+2. machine-aware robust Z-score;
+3. Isolation Forest.
 
-```json
-{
-  "detected_anomalies": 122,
-  "detected_anomaly_rate": 0.04066666666666666,
-  "f1_score": 0.9917355371900827,
-  "injected_anomalies": 120,
-  "precision": 0.9836065573770492,
-  "recall": 1.0,
-  "rows": 3000
-}
-```
+It records configuration, confusion counts, precision, recall, F1, false-positive and false-negative rates, per-fault recall and median runtime across repeated detector runs. Runtime is descriptive and environment-dependent; deterministic equality checks cover scores and predictions rather than wall-clock duration.
 
-The complete measured output is stored in [`examples/robust_z_metrics.json`](examples/robust_z_metrics.json). These strong results reflect deliberately separable synthetic failure signatures and must not be treated as expected real-factory performance. Production datasets require calibration, expert review, and maintenance-event labels.
+See the [comparison protocol](docs/detector_comparison_protocol.md) and [run guide](docs/running_detector_comparison.md).
 
-## Why two detection methods?
+## Reproduced baseline
 
-### Robust Z-score
+The committed global robust-Z example uses 3,000 rows, four machines, a 4% injected anomaly rate, seed 42 and threshold 4.0.
 
-The median and median absolute deviation are less sensitive to extreme measurements than the mean and standard deviation. The maximum robust score across features is easy to inspect and explain during an engineering review.
+| Metric | Result |
+| --- | ---: |
+| Injected anomalies | 120 |
+| Detected anomalies | 122 |
+| Precision | 0.9836 |
+| Recall | 1.0000 |
+| F1 | 0.9917 |
 
-The robust detector can calculate either one global reference distribution or separate distributions for groups such as machines. Grouped baselines reduce false alarms caused by legitimate machine offsets and can reveal local abnormalities hidden by the global population.
+The complete output is stored in [`examples/robust_z_metrics.json`](examples/robust_z_metrics.json). These strong values reflect deliberately separable synthetic signatures and should not be interpreted as expected production performance.
 
-### Isolation Forest
+## Technology
 
-Isolation Forest learns multivariate structure and can identify unusual combinations such as slightly elevated temperature together with vibration and cycle-time drift. It is less directly interpretable, so the robust baseline remains valuable.
+| Area | Tools |
+| --- | --- |
+| Data and numerics | Python, NumPy, pandas |
+| Detection | Robust median/MAD statistics, scikit-learn Isolation Forest |
+| Reporting | Matplotlib, CSV and JSON |
+| Interface | Installed command-line application |
+| Verification | pytest, pytest-cov, Ruff and GitHub Actions |
+| Reproducible execution | Docker and Make |
 
 ## Development
 
@@ -132,48 +127,34 @@ make test
 make demo
 ```
 
-Or run the tools directly:
+Or run the checks directly:
 
 ```bash
 ruff check .
 pytest --cov=quality_monitor --cov-report=term-missing
 ```
 
-## Docker
+## Next work
 
-```bash
-docker build -t industrial-quality-monitor .
-docker run --rm -v "$PWD:/workspace" industrial-quality-monitor \
-  generate --rows 1000 --output /workspace/data/production_data.csv
-```
+The next useful milestone is not another headline score. It is a more inspectable comparison:
 
-## Repository structure
+- preserve aligned row identifiers across detector outputs;
+- report pairwise detector agreement and disagreement;
+- show which fault types and machines cause disagreements;
+- add a comparison figure and written engineering interpretation;
+- separate healthy reference data from evaluation data in a later protocol;
+- add temporal validation before any claim about deployment behavior.
 
-```text
-.
-├── .github/workflows/ci.yml
-├── docs/architecture.md
-├── src/quality_monitor/
-│   ├── cli.py
-│   ├── data_generation.py
-│   ├── detectors.py
-│   ├── pipeline.py
-│   └── reporting.py
-├── tests/
-├── Dockerfile
-├── Makefile
-└── pyproject.toml
-```
+## Limits and responsible use
 
-See [docs/architecture.md](docs/architecture.md) for the data flow, design decisions, and extension points.
+- Synthetic faults are intentionally easier to control than real process behavior.
+- The current comparison uses the same generated frame to establish baselines and evaluate detections.
+- Group size, thresholds and contamination are demonstration parameters, not validated operating limits.
+- Runtime depends on hardware, operating system, Python version and background load.
+- Real use would require sensor-quality checks, healthy reference data, maintenance labels, temporal validation, expert review and cost-aware threshold selection.
+- This is not a certified quality-control or safety system.
 
-## Responsible use
-
-This repository is a portfolio and learning system, not a certified quality-control product. Thresholds, sensor calibration, maintenance decisions, and safety actions must be validated by domain experts using real process context.
-
-## Author
-
-Sadik Enes Erisen — M.Sc. Autonomy Technologies, FAU Erlangen-Nürnberg; B.Sc. Electrical and Electronics Engineering.
+The architecture and extension points are described in [`docs/architecture.md`](docs/architecture.md).
 
 ## Licence
 
